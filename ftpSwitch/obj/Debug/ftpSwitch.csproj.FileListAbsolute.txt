@@ -1,0 +1,9 @@
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\bin\Debug\ftpSwitch.exe
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\bin\Debug\ftpSwitch.pdb
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.csprojResolveAssemblyReference.cache
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.Form1.resources
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.Properties.Resources.resources
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.csproj.GenerateResource.Cache
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.csproj.CoreCompileInputs.cache
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.exe
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.pdb
