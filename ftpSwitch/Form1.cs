@@ -10,6 +10,8 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Net.Sockets;
 using System.Threading;
+using System.Data.OleDb;
+
 
 
 namespace ftpSwitch
@@ -17,9 +19,11 @@ namespace ftpSwitch
     public partial class Form1 : Form
     {
         string ftpServerIP;
-        string[] ftpPassword = { "", "asd123", "111", "1", "aaa", " ", "123456" };
+        string ftpObjIp;
+        string[] ftpPassword = { "", "asd123", "111", "1", "aaa", "123456", " " };
         string FS;
         bool trystate = true;
+        bool is_con = true;
 
 
         public Form1()
@@ -34,7 +38,10 @@ namespace ftpSwitch
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
-
+            if (textBox1.Text.Contains("IP"))
+            {
+                textBox1.Text="";
+            }
         }
 
         private void label1_Click(object sender, EventArgs e)
@@ -46,17 +53,55 @@ namespace ftpSwitch
         {
             Control.CheckForIllegalCrossThreadCalls = false;
             ftpServerIP = textBox1.Text;
-
-            if (ValidateIPAddress(ftpServerIP))
+            ftpObjIp = textBox2.Text;
+            bool EF = true;
+            if (ValidateIPAddress(ftpServerIP) && ValidateIPAddress(ftpObjIp))
             {
-                ShowMsg("尝试匿名登陆");
-                FtpBySocket(ftpServerIP, "", "");
-                if (!trystate)
+                int check = 0;
+                long che = 0;
+                int checkObj = 0;
+                string sta = boom(ftpServerIP.Split('.'));
+                
+                string obj = boom(ftpObjIp.Split('.'));
+
+                //string sta = ftpServerIP.Replace(".", "");
+                //string obj = ftpObjIp.Replace(".", "");
+                check = int.Parse(sta.Substring(sta.Length - 3, 3));
+                checkObj = int.Parse(obj.Substring(obj.Length - 3, 3));
+                che = System.Math.Abs(long.Parse(sta) - long.Parse(obj));
+                if (che >= 255)
                 {
-                    foreach (string psw in ftpPassword)
+                    MessageBox.Show("这都跨网段了，目标小一点吧");
+                    return;
+                }
+                string ip = ftpServerIP;
+                while (System.Math.Abs(check - checkObj) >= 0 && EF)
+                {
+                  
+                    ShowMsg("尝试匿名登陆");
+                    if(is_con)
+                        FtpBySocket(ip, "", "");
+                    if (!trystate)
                     {
-                        FtpBySocket(ftpServerIP, "test", psw);
-                        if (trystate) break;
+                        if (is_con)
+                        {
+                            foreach (string psw in ftpPassword)
+                            {
+                                FtpBySocket(ip, "test", psw);
+                                if (trystate) break;
+                                if (!is_con) break;
+                            }
+                        }
+                    }
+                    che--;
+                    if (string.Equals(ip, ftpObjIp))
+                    {
+                        EF = false;
+                    }
+                    else
+                    {
+                        ip = strsub(ip);
+                        is_con = true;
                     }
                 }
             }
@@ -66,6 +111,8 @@ namespace ftpSwitch
             }
 
             /*
+             * 本部分为直接使用FtpWebRequest的版本，如有需要将上面代码注释留下本部分即可
+             * 
             if (ValidateIPAddress(ftpServerIP))
             {
                 int i = 0;
@@ -128,10 +175,7 @@ namespace ftpSwitch
 
         }
 
-        private void textBox2_TextChanged(object sender, EventArgs e)
-        {
-
-        }
+       
 
         private void label2_Click_2(object sender, EventArgs e)
         {
@@ -177,11 +221,11 @@ namespace ftpSwitch
         Socket socket;
         public int FtpBySocket(string Ip, string User, string Password, string Port = "21")
         {
-
+            
             try
             {
                 socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                IPAddress ip = IPAddress.Parse(ftpServerIP);
+                IPAddress ip = IPAddress.Parse(Ip);
                 IPEndPoint point = new IPEndPoint(ip, Convert.ToInt32("21"));
                 socket.Connect(point);
                 ShowMsg("端口开启");
@@ -194,10 +238,12 @@ namespace ftpSwitch
             }
             catch (Exception ex)
             {
-                ShowMsg("\r\n 发生错误 --> " + ex.Message);
+                trystate = false;
+                is_con = false;
+                ShowMsg("\r\n 连接发生错误 --> " + ex.Message);
             }
 
-
+            
             return 0;
         }
 
@@ -207,8 +253,8 @@ namespace ftpSwitch
         }
         void Received()
         {
-
-
+            
+            
             byte[] buffer = new byte[1024 * 1024 * 3];
             //实际接收到的有效字节数
             int len = socket.Receive(buffer);
@@ -217,11 +263,14 @@ namespace ftpSwitch
             ShowMsg(socket.RemoteEndPoint + ":" + str);
 
 
-            if ((str.Contains("530") || str.Contains("501") || str.Contains("331")))
+            if (str.Contains("530") || str.Contains("501") || str.Contains("331") || str.Contains("503"))
             {
                 trystate = false;
 
-
+            }
+            else
+            {
+                trystate = true;
             }
 
 
@@ -232,6 +281,77 @@ namespace ftpSwitch
             FS = str;
         }
 
+
+        private static string connStr = @"Provider = Microsoft.Ace.OLEDB.12.0;Data Source = C:\Users\lflx1\source\repos\ftpSwitch\dbs\ftpfinder.mdb";
+        void DB()
+        {
+            try
+            {
+                OleDbConnection oleDb = new OleDbConnection(connStr);
+                MessageBox.Show(oleDb.DataSource);
+            }
+            catch
+            {
+
+            }
+        }
+
+        private void StateShow_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        public string boom(string[] strings)
+        {
+            string str="";
+            foreach (string s in strings)
+            {
+                switch (s.Length)
+                {
+                    case 1:
+                        str += "00" + s;
+                        break;
+                    case 2:
+                        str += "0" + s;
+                        break;
+                    case 3:
+                        str += s;
+                        break;
+                }
+            }
+            return str;
+        }
+        public string strsub(string str)
+        {
+            string st = "";
+            string[] s= str.Split('.');
+
+            for(int i = 0; i < 4; i++)
+            {
+                if (i == 3)
+                {
+                    st += (int.Parse(s[i]) + 1).ToString();
+                }
+                else
+                {
+                    st += s[i]+".";
+                }
+            }
+            return st;
+        }
+
+        private void textBox2_TextChanged_1(object sender, EventArgs e)
+        {
+            if (textBox2.Text.Contains("IP"))
+            {
+                textBox2.Text = "";
+            }
+        }
     }
 
 }
