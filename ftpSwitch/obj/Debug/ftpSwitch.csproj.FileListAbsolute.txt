@@ -7,3 +7,8 @@ C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.csproj.Gener
 C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.csproj.CoreCompileInputs.cache
 C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.exe
 C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.pdb
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\bin\Debug\Interop.MSTSCLib.dll
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\bin\Debug\AxInterop.MSTSCLib.dll
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\Interop.MSTSCLib.dll
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\AxInterop.MSTSCLib.dll
+C:\Users\lflx1\source\repos\ftpSwitch\ftpSwitch\obj\Debug\ftpSwitch.csproj.ResolveComReference.cache

