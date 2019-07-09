@@ -79,9 +79,6 @@ namespace ftpSwitch
 
                 string obj = boom(ftpObjIp.Split('.'));
 
-                //string sta = ftpServerIP.Replace(".", "");
-                //string obj = ftpObjIp.Replace(".", "");
-
                 check = int.Parse(sta.Substring(sta.Length - 3, 3));
                 checkObj = int.Parse(obj.Substring(obj.Length - 3, 3));
                 che = System.Math.Abs(long.Parse(sta) - long.Parse(obj));
@@ -97,11 +94,11 @@ namespace ftpSwitch
                         {
                             FtpBySocket(ip, "test", s);
                             if (is_success) break;
-                            if (maxcount >max-1) break;
+                            if (maxcount > max - 1) break;
                             maxcount++;
                         }
                         string psw = makePsw(PswList[PswList.Count - 1]);
-                        while (!is_success && max-listCount > 0)
+                        while (!is_success && max - listCount > 0)
                         {
                             FtpBySocket(ip, "test", psw);
                             psw = makePsw(psw);
@@ -547,7 +544,6 @@ namespace ftpSwitch
 
         private void textBox3_TextChanged(object sender, EventArgs e)
         {
-                textBox2.Text = "";
         }
 
         private void label4_Click(object sender, EventArgs e)
@@ -558,36 +554,132 @@ namespace ftpSwitch
         private void button1_Click_1(object sender, EventArgs e)
         {
             is_rdp_success = false;
+
             string ip = textBox4.Text;
-            try
+            string itmip = textBox5.Text;
+
+            string user = userBox.Text;
+            string password = pswBox.Text;
+            //扫描
+            if (radioButton3.Checked)
             {
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                IPAddress socketIp = IPAddress.Parse(ip);
-                IPEndPoint point = new IPEndPoint(socketIp, Convert.ToInt32(3389));
-                socket.Connect(point);
-                ShowMsg("端口开启");
-                socket.Close();
-                if (radioButton1.Checked)
+                string sta = boom(ip.Split('.'));
+                string obj = boom(itmip.Split('.'));
+                int check = int.Parse(sta.Substring(sta.Length - 3, 3));
+                int checkObj = int.Parse(obj.Substring(obj.Length - 3, 3));
+                long che = System.Math.Abs(long.Parse(sta) - long.Parse(obj));
+                if (che >= 255)
                 {
-                    ConMstsc(ip, "3389", "test", "1", false);
+                    MessageBox.Show("这都跨网段了，目标小一点吧");
+                    return;
                 }
-                while (!is_rdp_success)
+                bool EF = true;
+                while (System.Math.Abs(check - checkObj) >= 0 && EF)
                 {
-                    ConMstsc(ip, "3389", "test", "1",true);
-                    DateTime dt1 = DateTime.Now;
-                    while ((DateTime.Now - dt1).TotalMilliseconds < 3000) Application.DoEvents();
-                    if (!is_rdp_success)
+                    try
                     {
-                        rdp.Disconnect();
-                        while ((DateTime.Now - dt1).TotalMilliseconds < 4000) Application.DoEvents();
-                        MstscShow("系统正被占用或登陆时用户名密码错误或超时");
-                        
+                        socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                        IPAddress socketIp = IPAddress.Parse(ip);
+                        IPEndPoint point = new IPEndPoint(socketIp, Convert.ToInt32(3389));
+                        socket.Connect(point);
+                        ShowMsg("端口开启");
+                        socket.Close();
+
+                    }
+                    catch (Exception ex)
+                    {
+                        MstscShow("\r\n 连接发生错误 --> " + ex.Message);
+                    }
+                    if (string.Equals(ip, itmip))
+                    {
+                        EF = false;
+                    }
+                    else
+                    {
+                        ip = strsub(ip);
+                        is_con = true;
                     }
                 }
             }
-            catch (Exception ex)
+            else
             {
-                MstscShow("发生错误->" + ex.Message);
+                //登陆
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    IPAddress socketIp = IPAddress.Parse(ip);
+                    IPEndPoint point = new IPEndPoint(socketIp, Convert.ToInt32(3389));
+                    socket.Connect(point);
+                    ShowMsg("端口开启");
+                    socket.Close();
+
+
+
+                    if (radioButton1.Checked)
+                    {
+                        ConMstsc(ip, "3389", user, password, false);
+                    }
+                    else
+                    {
+
+                        int max = 10;
+                        int listCount = PswList.Count;
+                        string que = "";
+                        que = SelectSmtsc(ip);
+                        if (que != "")
+                        {
+                            ConMstsc(ip, "3389", "test", que, true);
+                        }
+                        if (!is_rdp_success)
+                        {
+                            foreach (string s in PswList)
+                            {
+                                ConMstsc(ip, "3389", "test", s, true);
+                                DateTime dt1 = DateTime.Now;
+                                while ((DateTime.Now - dt1).TotalMilliseconds < 3000) Application.DoEvents();
+                                if (is_rdp_success) break;
+                                rdp.Disconnect();
+                                while ((DateTime.Now - dt1).TotalMilliseconds < 4000) Application.DoEvents();
+                                MstscShow("系统正被占用或登陆时用户名密码错误或超时,密码:" + s);
+
+                            }
+                        }
+                        string psw = makePsw(PswList[PswList.Count - 1]);
+
+                        while (!is_rdp_success && max - listCount > 0)
+                        {
+                            Write(psw);
+                            ConMstsc(ip, "3389", "test", psw, true);
+                            DateTime dt1 = DateTime.Now;
+                            while ((DateTime.Now - dt1).TotalMilliseconds < 3000) Application.DoEvents();
+                            if (!is_rdp_success)
+                            {
+                                rdp.Disconnect();
+                                while ((DateTime.Now - dt1).TotalMilliseconds < 4000) Application.DoEvents();
+                                MstscShow("系统正被占用或登陆时用户名密码错误或超时:循环");
+
+                            }
+                            else
+                            {
+                                break;
+                            }
+                            psw = makePsw(psw);
+                            max--;
+
+                        }
+                        if (is_rdp_success)
+                        {
+                            string[] submit = { "test", psw };
+                            IncSmtsc(submit);
+                        }
+
+
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MstscShow("发生错误->" + ex.Message);
+                }
             }
         }
 
@@ -598,10 +690,10 @@ namespace ftpSwitch
         }
         void ConMstsc(string ip, string port, string user, string password, bool model)
         {
-            
+
             try
             {
-                
+
                 rdp.Server = ip;
                 rdp.AdvancedSettings2.RDPPort = int.Parse(port);
                 rdp.UserName = user;
@@ -626,9 +718,62 @@ namespace ftpSwitch
         {
             this.WindowState = FormWindowState.Maximized;
         }
-        private bool  socketFinder()
+        private void IncSmtsc(string[] var)
         {
-            return true;
+            try
+            {
+                OleDbConnection db = DB();
+                string sql = "";
+                sql = "INSERT INTO mstsc VALUES ( '" + var[0] + "','" + var[1] + "'  ) ";
+                ShowMsg(sql);
+                ShowMsg("记录连接->IP:" + var[0] + "密码：" + var[1]);
+
+
+                db.Open();
+
+                OleDbCommand cmd = new OleDbCommand(sql, db);
+                int a = cmd.ExecuteNonQuery();
+                db.Close();
+                if (a > 0)
+                {
+                    MstscShow("记录成功");
+                }
+            }
+            catch (Exception ex)
+            {
+                MstscShow("发生错误->" + ex.Message);
+            }
+        }
+
+        private string SelectSmtsc(string ip)
+        {
+            OleDbConnection db = DB();
+            db.Open();
+            string rec = "";
+            string sql = "SELECT PASSWORD FROM mstsc WHERE IP ='" + ip + "'";
+            OleDbCommand cmd = new OleDbCommand(sql, db);
+            if (cmd.ExecuteScalar() != null)
+                rec = cmd.ExecuteScalar().ToString();
+            db.Close();
+
+            return rec;
+        }
+
+        private void serachPort(string ip)
+        {
+            try
+            {
+                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                IPAddress socketIp = IPAddress.Parse(ip);
+                IPEndPoint point = new IPEndPoint(socketIp, Convert.ToInt32(3389));
+                socket.Connect(point);
+                ShowMsg("端口开启");
+                socket.Close();
+            }
+            catch (Exception ex)
+            {
+                MstscShow("发生错误->" + ex.Message);
+            }
         }
     }
 
